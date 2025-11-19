@@ -1,0 +1,54 @@
+name: Sync Upstream & Notify
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # a cada 6 horas
+  workflow_dispatch:         # permitir rodar manualmente
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/tulir/whatsmeow.git
+          git fetch upstream
+
+      - name: Check for changes
+        id: check
+        run: |
+          git diff --quiet main upstream/main || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create PR if updates exist
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "🔄 Update from upstream"
+          body: "Upstream has new commits. This PR syncs them into your fork."
+          base: main
+          head: sync-upstream
+          labels: upstream-sync
+          commit-message: "Sync: update from upstream"
+
+      - name: Send Telegram notification
+        if: steps.check.outputs.changed == 'true'
+        uses: appleboy/telegram-action@v1.0.0
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            🔄 *Atualização detectada!*
+
+            Um PR automático foi aberto para sincronizar com o upstream:
+            *${{ github.repository }}*
+
+            Ação necessária:
+            • Revisar  
+            • Aprovar o merge
