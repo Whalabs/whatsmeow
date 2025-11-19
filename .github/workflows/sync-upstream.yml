@@ -50,5 +50,5 @@ jobs:
             *${{ github.repository }}*
 
             Ação necessária:
-            • Revisar  
+            • Revisar
             • Aprovar o merge
