@@ -41,15 +41,26 @@ jobs:
           git merge --no-ff upstream/main -m "Sync: update from upstream"
           git push origin sync-upstream --force
 
+      - name: Debug branch status
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git checkout sync-upstream
+          echo "Commits ahead of main:"
+          git rev-list --count main..sync-upstream
+          echo "Branch status:"
+          git log --oneline main..sync-upstream
+
       - name: Create PR
         if: steps.check.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           title: "🔄 Update from upstream"
           body: "Upstream has new commits. This PR syncs them into your fork."
           base: main
           branch: sync-upstream
           labels: upstream-sync
+          delete-branch: false
 
       - name: Notify Telegram
         if: steps.check.outputs.changed == 'true'
