@@ -37,18 +37,9 @@ jobs:
         run: |
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
-          git checkout -B sync-upstream main
-          git merge --no-ff upstream/main -m "Sync: update from upstream"
-          git push origin sync-upstream --force
-
-      - name: Debug branch status
-        if: steps.check.outputs.changed == 'true'
-        run: |
-          git checkout sync-upstream
-          echo "Commits ahead of main:"
-          git rev-list --count main..sync-upstream
-          echo "Branch status:"
-          git log --oneline main..sync-upstream
+          git checkout main
+          git checkout -B sync-upstream
+          git merge --no-commit --no-ff upstream/main || true
 
       - name: Create PR
         if: steps.check.outputs.changed == 'true'
@@ -60,6 +51,7 @@ jobs:
           base: main
           branch: sync-upstream
           labels: upstream-sync
+          commit-message: "Sync: update from upstream"
           delete-branch: false
 
       - name: Notify Telegram
