@@ -37,7 +37,7 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
           git checkout -B sync-upstream main
-          git merge --no-commit --no-ff upstream/main
+          git merge --no-ff upstream/main -m "Sync: update from upstream"
 
       - name: Create PR
         if: steps.check.outputs.changed == 'true'
@@ -48,7 +48,6 @@ jobs:
           base: main
           branch: sync-upstream
           labels: upstream-sync
-          commit-message: "Sync: update from upstream"
 
       - name: Notify Telegram
         if: steps.check.outputs.changed == 'true'
