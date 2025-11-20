@@ -25,12 +25,10 @@ jobs:
         run: |
           # Tentativa de merge sem aplicar mudanças
           git merge --no-commit --no-ff upstream/main || true
-          
           # Se houver diferenças reais após merge dry-run
           if ! git diff --quiet HEAD; then
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
-          
           # Resetar estado para não sujar o repo
           git merge --abort || true
 
