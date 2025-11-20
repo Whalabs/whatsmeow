@@ -38,7 +38,7 @@ jobs:
           title: "🔄 Update from upstream"
           body: "Upstream has new commits. This PR syncs them into your fork."
           base: main
-          head: sync-upstream
+          branch: sync-upstream
           labels: upstream-sync
           commit-message: "Sync: update from upstream"
 
