@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add upstream remote
         run: |
@@ -38,6 +39,7 @@ jobs:
           git config user.name "GitHub Actions"
           git checkout -B sync-upstream main
           git merge --no-ff upstream/main -m "Sync: update from upstream"
+          git push origin sync-upstream --force
 
       - name: Create PR
         if: steps.check.outputs.changed == 'true'
