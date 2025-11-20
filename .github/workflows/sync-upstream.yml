@@ -3,7 +3,7 @@ name: Sync Upstream & Notify
 on:
   schedule:
     - cron: "0 */6 * * *"   # a cada 6 horas
-  workflow_dispatch:         # permitir rodar manualmente
+  workflow_dispatch:
 
 jobs:
   sync:
@@ -20,10 +20,19 @@ jobs:
           git remote add upstream https://github.com/tulir/whatsmeow.git
           git fetch upstream
 
-      - name: Check for changes
+      - name: Dry-run merge to detect real upstream updates
         id: check
         run: |
-          git diff --quiet main upstream/main || echo "changed=true" >> $GITHUB_OUTPUT
+          # Tentativa de merge sem aplicar mudanças
+          git merge --no-commit --no-ff upstream/main || true
+          
+          # Se houver diferenças reais após merge dry-run
+          if ! git diff --quiet HEAD; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Resetar estado para não sujar o repo
+          git merge --abort || true
 
       - name: Create PR if updates exist
         if: steps.check.outputs.changed == 'true'
@@ -43,12 +52,4 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
-          message: |
-            🔄 *Atualização detectada!*
-
-            Um PR automático foi aberto para sincronizar com o upstream:
-            *${{ github.repository }}*
-
-            Ação necessária:
-            • Revisar
-            • Aprovar o merge
+          message: "🔄 *Atualização detectada!* Um pull request automático foi aberto no repositório *${{ github.repository }}*. Revisar e fazer merge."
