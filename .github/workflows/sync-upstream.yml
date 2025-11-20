@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   sync:
@@ -18,7 +17,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add upstream remote
         run: |
@@ -32,27 +30,20 @@ jobs:
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Prepare sync branch
+      - name: Get upstream changes info
         if: steps.check.outputs.changed == 'true'
+        id: changes
         run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git checkout main
-          git checkout -B sync-upstream
-          git merge --no-commit --no-ff upstream/main || true
-
-      - name: Create PR
-        if: steps.check.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          title: "🔄 Update from upstream"
-          body: "Upstream has new commits. This PR syncs them into your fork."
-          base: main
-          branch: sync-upstream
-          labels: upstream-sync
-          commit-message: "Sync: update from upstream"
-          delete-branch: false
+          COMMITS_AHEAD=$(git rev-list --count main..upstream/main)
+          LAST_COMMIT=$(git log -1 --format="%h - %s" upstream/main)
+          echo "commits=$COMMITS_AHEAD" >> $GITHUB_OUTPUT
+          echo "last_commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
+          echo "=== Mudanças detectadas ==="
+          echo "Commits à frente: $COMMITS_AHEAD"
+          echo "Último commit: $LAST_COMMIT"
+          echo ""
+          echo "Commits que serão sincronizados:"
+          git log --oneline main..upstream/main | head -10
 
       - name: Notify Telegram
         if: steps.check.outputs.changed == 'true'
@@ -61,4 +52,16 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
-          message: "🔄 *Atualização detectada!* Um pull request automático foi aberto no repositório *${{ github.repository }}*. Revisar e fazer merge."
+          message: |
+            🔄 *Atualização detectada no upstream!*
+
+            Repositório: *${{ github.repository }}*
+
+            📊 *Estatísticas:*
+            • Commits à frente: *${{ steps.changes.outputs.commits }}*
+            • Último commit: `${{ steps.changes.outputs.last_commit }}`
+
+            ⚠️ *Ação necessária:*
+            Faça o sync manualmente no GitHub ou localmente.
+
+            🔗 [Ver comparação](https://github.com/${{ github.repository }}/compare/main...tulir/whatsmeow:main)
