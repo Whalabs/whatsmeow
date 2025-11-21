@@ -26,20 +26,25 @@ jobs:
       - name: Detect upstream changes
         id: check
         run: |
-          if ! git diff --quiet main upstream/main; then
+          COMMITS_AHEAD=$(git rev-list --count main..upstream/main)
+          if [ "$COMMITS_AHEAD" -gt 0 ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "commits=$COMMITS_AHEAD" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "commits=0" >> $GITHUB_OUTPUT
           fi
+          echo "Commits à frente do upstream: $COMMITS_AHEAD"
 
       - name: Get upstream changes info
         if: steps.check.outputs.changed == 'true'
         id: changes
         run: |
-          COMMITS_AHEAD=$(git rev-list --count main..upstream/main)
           LAST_COMMIT=$(git log -1 --format="%h - %s" upstream/main)
-          echo "commits=$COMMITS_AHEAD" >> $GITHUB_OUTPUT
+          echo "commits=${{ steps.check.outputs.commits }}" >> $GITHUB_OUTPUT
           echo "last_commit=$LAST_COMMIT" >> $GITHUB_OUTPUT
           echo "=== Mudanças detectadas ==="
-          echo "Commits à frente: $COMMITS_AHEAD"
+          echo "Commits à frente: ${{ steps.check.outputs.commits }}"
           echo "Último commit: $LAST_COMMIT"
           echo ""
           echo "Commits que serão sincronizados:"
