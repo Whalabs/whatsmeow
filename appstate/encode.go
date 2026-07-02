@@ -230,6 +230,37 @@ func BuildSettingPushName(pushName string) PatchInfo {
 	}
 }
 
+// BuildContact builds an app state patch for saving a contact to the account's contact list.
+//
+// The patch is indexed by the phone-number JID (target), which is what the official clients use even
+// for LID contacts; the LID, when known, goes inside the action's LidJID field. firstName is optional.
+//
+// saveOnPrimaryAddressbook, when true, asks the primary device to also persist the contact in the
+// phone's local address book. When saving from a companion (e.g. a bot) you usually want false so the
+// contact is only stored in the WhatsApp account, not in the phone's physical address book.
+func BuildContact(target types.JID, fullName, firstName string, lid types.JID, saveOnPrimaryAddressbook bool) PatchInfo {
+	action := &waSyncAction.ContactAction{
+		FullName:                 proto.String(fullName),
+		SaveOnPrimaryAddressbook: proto.Bool(saveOnPrimaryAddressbook),
+	}
+	if firstName != "" {
+		action.FirstName = proto.String(firstName)
+	}
+	if !lid.IsEmpty() {
+		action.LidJID = proto.String(lid.String())
+	}
+	return PatchInfo{
+		Type: WAPatchCriticalUnblockLow,
+		Mutations: []MutationInfo{{
+			Index:   []string{IndexContact, target.String()},
+			Version: 2,
+			Value: &waSyncAction.SyncActionValue{
+				ContactAction: action,
+			},
+		}},
+	}
+}
+
 func newStarMutation(targetJID, senderJID string, messageID types.MessageID, fromMe string, starred bool) MutationInfo {
 	return MutationInfo{
 		Index:   []string{IndexStar, targetJID, messageID, fromMe, senderJID},
