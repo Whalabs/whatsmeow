@@ -220,6 +220,17 @@ func (cli *Client) IsOnWhatsApp(ctx context.Context, phones []string) ([]types.I
 		info.IsIn = contactNode.AttrGetter().String("type") == "in"
 		contactQuery, _ := contactNode.Content.([]byte)
 		info.Query = strings.TrimSuffix(string(contactQuery), querySuffix)
+		// WhatsApp usernames (2026): the query above requests a <username> node, but the
+		// response value was previously discarded. Surface it so callers can display the
+		// @username of username-only / LID contacts. Read the node content, falling back
+		// to a "name" attribute in case the server encodes it as an attribute.
+		if usernameNode := child.GetChildByTag("username"); usernameNode.Tag == "username" {
+			if usernameContent, ok := usernameNode.Content.([]byte); ok && len(usernameContent) > 0 {
+				info.Username = string(usernameContent)
+			} else {
+				info.Username = usernameNode.AttrGetter().OptionalString("name")
+			}
+		}
 		output = append(output, info)
 	}
 	if len(lidEntries) > 0 {

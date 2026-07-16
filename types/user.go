@@ -97,6 +97,12 @@ type IsOnWhatsAppResponse struct {
 	PhoneNumber JID
 
 	VerifiedName *VerifiedName // If the phone is a business, the verified business details.
+
+	// Username is the WhatsApp username (@handle, 2026 rollout) of the contact, when the
+	// usync response includes it. Empty when the contact has no username or the server
+	// did not return it. The IsOnWhatsApp query already requests the <username> node;
+	// this field surfaces the value that was previously discarded.
+	Username string
 }
 
 // BusinessMessageLinkTarget contains the info that is found using a business message link (see Client.ResolveBusinessMessageLink)
