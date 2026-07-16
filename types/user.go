@@ -31,6 +31,11 @@ type UserInfo struct {
 	PictureID    string
 	Devices      []JID
 	LID          JID
+	// Username is the WhatsApp username (@handle, 2026 rollout) of the user, when the
+	// usync response includes it. Empty when the user has no username or the server did
+	// not return it. Unlike phone/LID, this can be queried for LID-only (username-only)
+	// contacts, so it is the way to surface a @handle when there is no phone number.
+	Username string
 }
 
 type BotListInfo struct {

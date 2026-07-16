@@ -250,6 +250,7 @@ func (cli *Client) GetUserInfo(ctx context.Context, jids []types.JID) (map[types
 		{Tag: "picture"},
 		{Tag: "devices", Attrs: waBinary.Attrs{"version": "2"}},
 		{Tag: "lid"},
+		{Tag: "username"},
 	}, UsyncQueryExtras{
 		IncludePrivacyToken: true,
 	})
@@ -275,6 +276,16 @@ func (cli *Client) GetUserInfo(ctx context.Context, jids []types.JID) (map[types
 
 		lidTag := child.GetChildByTag("lid")
 		info.LID = lidTag.AttrGetter().OptionalJIDOrEmpty("val")
+
+		// WhatsApp usernames (2026): surface the @handle when present. usync can be
+		// queried by LID, so this works for username-only contacts with no phone number.
+		if usernameNode := child.GetChildByTag("username"); usernameNode.Tag == "username" {
+			if usernameContent, ok := usernameNode.Content.([]byte); ok && len(usernameContent) > 0 {
+				info.Username = string(usernameContent)
+			} else {
+				info.Username = usernameNode.AttrGetter().OptionalString("name")
+			}
+		}
 
 		if !info.LID.IsEmpty() {
 			mappings = append(mappings, store.LIDMapping{PN: jid, LID: info.LID})
