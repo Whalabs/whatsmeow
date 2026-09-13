@@ -209,6 +209,22 @@ func (n *NoopStore) GetChatSettings(ctx context.Context, chat types.JID) (types.
 	return types.LocalChatSettings{}, n.Error
 }
 
+func (n *NoopStore) PutBroadcastList(ctx context.Context, list types.BroadcastListInfo) error {
+	return n.Error
+}
+
+func (n *NoopStore) DeleteBroadcastList(ctx context.Context, listJID types.JID) error {
+	return n.Error
+}
+
+func (n *NoopStore) GetBroadcastList(ctx context.Context, listJID types.JID) (*types.BroadcastListInfo, error) {
+	return nil, n.Error
+}
+
+func (n *NoopStore) GetAllBroadcastLists(ctx context.Context) ([]types.BroadcastListInfo, error) {
+	return nil, n.Error
+}
+
 func (n *NoopStore) PutMessageSecrets(ctx context.Context, inserts []MessageSecretInsert) error {
 	return n.Error
 }

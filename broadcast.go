@@ -21,7 +21,7 @@ func (cli *Client) getBroadcastListParticipants(ctx context.Context, jid types.J
 	if jid == types.StatusBroadcastJID {
 		list, err = cli.getStatusBroadcastRecipients(ctx)
 	} else {
-		return nil, ErrBroadcastListUnsupported
+		list, err = cli.getRegularBroadcastListRecipients(ctx, jid)
 	}
 	if err != nil {
 		return nil, err
@@ -140,4 +140,62 @@ func (cli *Client) GetStatusPrivacy(ctx context.Context) ([]types.StatusPrivacy,
 		return DefaultStatusPrivacy, nil
 	}
 	return outputs, nil
+}
+
+// getRegularBroadcastListRecipients resolves the members of a non-status broadcast list from the
+// app state synced copy. There is no server-side query for this: a broadcast list is local to the
+// sender, so if app state never synced the list, it cannot be resolved.
+func (cli *Client) getRegularBroadcastListRecipients(ctx context.Context, jid types.JID) ([]types.JID, error) {
+	if cli.Store.BroadcastLists == nil {
+		return nil, ErrBroadcastListUnsupported
+	}
+	info, err := cli.Store.BroadcastLists.GetBroadcastList(ctx, jid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get broadcast list from store: %w", err)
+	} else if info == nil {
+		return nil, ErrBroadcastListNotFound
+	}
+	recipients := make([]types.JID, 0, len(info.Participants))
+	for _, p := range info.Participants {
+		// Prefer the phone number: it is what the recipient's session is keyed by for contacts that
+		// predate LID addressing. The LID is the fallback for username-only contacts.
+		if !p.PN.IsEmpty() {
+			recipients = append(recipients, p.PN)
+		} else if !p.LID.IsEmpty() {
+			recipients = append(recipients, p.LID)
+		}
+	}
+	if len(recipients) == 0 {
+		return nil, ErrBroadcastListEmpty
+	}
+	return recipients, nil
+}
+
+// GetBroadcastLists returns the broadcast lists synced from app state.
+//
+// Broadcast lists are local to the sender, so this reads the local copy rather than querying the
+// server. An account that has never synced the "regular" app state patch returns an empty list.
+func (cli *Client) GetBroadcastLists(ctx context.Context) ([]types.BroadcastListInfo, error) {
+	if cli == nil {
+		return nil, ErrClientIsNil
+	} else if cli.Store.BroadcastLists == nil {
+		return nil, ErrBroadcastListUnsupported
+	}
+	return cli.Store.BroadcastLists.GetAllBroadcastLists(ctx)
+}
+
+// GetBroadcastListInfo returns one broadcast list synced from app state, or ErrBroadcastListNotFound.
+func (cli *Client) GetBroadcastListInfo(ctx context.Context, jid types.JID) (*types.BroadcastListInfo, error) {
+	if cli == nil {
+		return nil, ErrClientIsNil
+	} else if cli.Store.BroadcastLists == nil {
+		return nil, ErrBroadcastListUnsupported
+	}
+	info, err := cli.Store.BroadcastLists.GetBroadcastList(ctx, jid)
+	if err != nil {
+		return nil, err
+	} else if info == nil {
+		return nil, ErrBroadcastListNotFound
+	}
+	return info, nil
 }

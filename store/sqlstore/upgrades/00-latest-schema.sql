@@ -1,4 +1,4 @@
--- v0 -> v15 (compatible with v8+): Latest schema
+-- v0 -> v16 (compatible with v8+): Latest schema
 CREATE TABLE whatsmeow_device (
 	jid TEXT PRIMARY KEY,
 	lid TEXT,
@@ -180,3 +180,15 @@ CREATE TABLE whatsmeow_retry_buffer (
 );
 
 CREATE INDEX whatsmeow_retry_buffer_timestamp_idx ON whatsmeow_retry_buffer (our_jid, timestamp);
+
+CREATE TABLE whatsmeow_broadcast_lists (
+	our_jid      TEXT   NOT NULL,
+	list_jid     TEXT   NOT NULL,
+	name         TEXT   NOT NULL DEFAULT '',
+	participants TEXT   NOT NULL DEFAULT '[]',
+	label_ids    TEXT   NOT NULL DEFAULT '[]',
+	updated_at   BIGINT NOT NULL DEFAULT 0,
+
+	PRIMARY KEY (our_jid, list_jid),
+	FOREIGN KEY (our_jid) REFERENCES whatsmeow_device(jid) ON DELETE CASCADE ON UPDATE CASCADE
+);

@@ -403,6 +403,40 @@ func (cli *Client) dispatchAppState(ctx context.Context, name appstate.WAPatchNa
 			Action:       act,
 			FromFullSync: fullSync,
 		}
+	case appstate.IndexBusinessBroadcastList:
+		// Index[1] is the list JID. A deletion arrives as SET with deleted=true rather than as a
+		// REMOVE mutation, so it is handled here and not by the operation check above.
+		act := mutation.Action.GetBusinessBroadcastListAction()
+		if act == nil || jid.IsEmpty() {
+			break
+		}
+		info := types.BroadcastListInfo{
+			JID:          jid,
+			Name:         act.GetListName(),
+			LabelIDs:     act.GetLabelIDs(),
+			Timestamp:    ts,
+			Participants: make([]types.BroadcastListParticipant, 0, len(act.GetParticipants())),
+		}
+		for _, p := range act.GetParticipants() {
+			var participant types.BroadcastListParticipant
+			participant.LID, _ = types.ParseJID(p.GetLidJID())
+			participant.PN, _ = types.ParseJID(p.GetPnJID())
+			info.Participants = append(info.Participants, participant)
+		}
+		eventToDispatch = &events.BroadcastList{
+			JID:          jid,
+			Timestamp:    ts,
+			Deleted:      act.GetDeleted(),
+			Info:         info,
+			FromFullSync: fullSync,
+		}
+		if cli.Store.BroadcastLists != nil {
+			if act.GetDeleted() {
+				storeUpdateError = cli.Store.BroadcastLists.DeleteBroadcastList(ctx, jid)
+			} else {
+				storeUpdateError = cli.Store.BroadcastLists.PutBroadcastList(ctx, info)
+			}
+		}
 	case appstate.IndexLabelAssociationMessage:
 		if len(mutation.Index) < 6 {
 			return

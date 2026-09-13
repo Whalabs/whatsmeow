@@ -118,6 +118,15 @@ type ChatSettingsStore interface {
 	GetChatSettings(ctx context.Context, chat types.JID) (types.LocalChatSettings, error)
 }
 
+// BroadcastListStore keeps the broadcast lists synced from app state. A list is local to the
+// sender: it has no server-side metadata to fetch, so app state is the only source.
+type BroadcastListStore interface {
+	PutBroadcastList(ctx context.Context, list types.BroadcastListInfo) error
+	DeleteBroadcastList(ctx context.Context, listJID types.JID) error
+	GetBroadcastList(ctx context.Context, listJID types.JID) (*types.BroadcastListInfo, error)
+	GetAllBroadcastLists(ctx context.Context) ([]types.BroadcastListInfo, error)
+}
+
 type DeviceContainer interface {
 	PutDevice(ctx context.Context, store *Device) error
 	DeleteDevice(ctx context.Context, store *Device) error
@@ -199,6 +208,7 @@ type AllSessionSpecificStores interface {
 	AppStateStore
 	ContactStore
 	ChatSettingsStore
+	BroadcastListStore
 	MsgSecretStore
 	PrivacyTokenStore
 	NCTSaltStore
@@ -236,22 +246,23 @@ type Device struct {
 
 	FacebookUUID uuid.UUID
 
-	Initialized   bool
-	Deleted       bool
-	Identities    IdentityStore
-	Sessions      SessionStore
-	PreKeys       PreKeyStore
-	SenderKeys    SenderKeyStore
-	AppStateKeys  AppStateSyncKeyStore
-	AppState      AppStateStore
-	Contacts      ContactStore
-	ChatSettings  ChatSettingsStore
-	MsgSecrets    MsgSecretStore
-	PrivacyTokens PrivacyTokenStore
-	NCTSalt       NCTSaltStore
-	EventBuffer   EventBuffer
-	LIDs          LIDStore
-	Container     DeviceContainer
+	Initialized    bool
+	Deleted        bool
+	Identities     IdentityStore
+	Sessions       SessionStore
+	PreKeys        PreKeyStore
+	SenderKeys     SenderKeyStore
+	AppStateKeys   AppStateSyncKeyStore
+	AppState       AppStateStore
+	Contacts       ContactStore
+	ChatSettings   ChatSettingsStore
+	BroadcastLists BroadcastListStore
+	MsgSecrets     MsgSecretStore
+	PrivacyTokens  PrivacyTokenStore
+	NCTSalt        NCTSaltStore
+	EventBuffer    EventBuffer
+	LIDs           LIDStore
+	Container      DeviceContainer
 }
 
 func (device *Device) GetJID() types.JID {
@@ -305,6 +316,7 @@ func (device *Device) SetAllStores(store AllSessionSpecificStores) {
 	device.AppState = store
 	device.Contacts = store
 	device.ChatSettings = store
+	device.BroadcastLists = store
 	device.MsgSecrets = store
 	device.PrivacyTokens = store
 	device.NCTSalt = store

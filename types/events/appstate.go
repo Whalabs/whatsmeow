@@ -145,6 +145,16 @@ type UserStatusMute struct {
 	FromFullSync bool                               // Whether the action is emitted because of a fullSync
 }
 
+// BroadcastList is emitted when a broadcast list is created, edited or deleted from any device.
+type BroadcastList struct {
+	JID       types.JID // The broadcast list which changed.
+	Timestamp time.Time // The time when the list was changed.
+	Deleted   bool      // Whether the list was deleted.
+
+	Info         types.BroadcastListInfo // The new list info. Empty participants when deleted.
+	FromFullSync bool                    // Whether the action is emitted because of a fullSync
+}
+
 // LabelEdit is emitted when a label is edited from any device.
 type LabelEdit struct {
 	Timestamp time.Time // The time when the label was edited.

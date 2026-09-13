@@ -106,11 +106,15 @@ var (
 
 // Some errors that Client.SendMessage can return
 var (
-	ErrBroadcastListUnsupported = errors.New("sending to non-status broadcast lists is not yet supported")
-	ErrUnknownServer            = errors.New("can't send message to unknown server")
-	ErrRecipientADJID           = errors.New("message recipient must be a user JID with no device part")
-	ErrServerReturnedError      = errors.New("server returned error")
-	ErrInvalidInlineBotID       = errors.New("invalid inline bot ID")
+	ErrBroadcastListUnsupported = errors.New("broadcast lists are not supported by this store")
+	// ErrBroadcastListNotFound is returned when the list is not in the app state synced copy.
+	ErrBroadcastListNotFound = errors.New("broadcast list not found in app state")
+	// ErrBroadcastListEmpty is returned when the list exists but has no resolvable participants.
+	ErrBroadcastListEmpty  = errors.New("broadcast list has no participants")
+	ErrUnknownServer       = errors.New("can't send message to unknown server")
+	ErrRecipientADJID      = errors.New("message recipient must be a user JID with no device part")
+	ErrServerReturnedError = errors.New("server returned error")
+	ErrInvalidInlineBotID  = errors.New("invalid inline bot ID")
 )
 
 type DownloadHTTPError struct {
