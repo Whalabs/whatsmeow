@@ -329,11 +329,9 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
 				err = fmt.Errorf("failed to get broadcast list members: %w", err)
 				return
 			}
-			if to != types.StatusBroadcastJID {
-				// Participants are LIDs (see getRegularBroadcastListRecipients), so the sender is too. The
-				// addressing_mode attribute a group carries is refused here with 479.
-				ownID = cli.getOwnLID()
-			}
+			// Participants of lists and statuses are LIDs (see getBroadcastListParticipants), so the
+			// sender is too. The addressing_mode attribute a group carries is refused here with 479.
+			ownID = cli.getOwnLID()
 		}
 		resp.DebugTimings.GetParticipants = time.Since(start)
 	} else if to.Server == types.HiddenUserServer {
@@ -482,7 +480,11 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
 			delete(cli.groupCache, to)
 			cli.groupCacheLock.Unlock()
 		case types.BroadcastServer:
-			// TODO do something
+			// Some recipient changed devices since we cached them, and the new one never got the
+			// sender key. Which one is unknown here, so the device cache is dropped as a whole.
+			cli.userDevicesCacheLock.Lock()
+			clear(cli.userDevicesCache)
+			cli.userDevicesCacheLock.Unlock()
 		case types.DefaultUserServer, types.HiddenUserServer, types.BotServer, types.HostedServer, types.HostedLIDServer:
 			cli.userDevicesCacheLock.Lock()
 			delete(cli.userDevicesCache, to)

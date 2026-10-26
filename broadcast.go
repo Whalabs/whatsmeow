@@ -39,6 +39,10 @@ func (cli *Client) getBroadcastListParticipants(ctx context.Context, jid types.J
 	if err != nil {
 		return nil, err
 	}
+	// Recipients are all LIDs, so we are too: the server refuses a list that mixes both identities.
+	if ownLID := cli.getOwnLID().ToNonAD(); !ownLID.IsEmpty() {
+		ownID = ownLID
+	}
 	if !slices.ContainsFunc(list, func(p types.JID) bool { return p.User == ownID.User }) {
 		list = append(list, ownID)
 	}
@@ -53,7 +57,7 @@ func (cli *Client) getStatusBroadcastRecipients(ctx context.Context) ([]types.JI
 	statusPrivacy := statusPrivacyOptions[0]
 	if statusPrivacy.Type == types.StatusPrivacyTypeWhitelist {
 		// Whitelist mode, just return the list
-		return statusPrivacy.List, nil
+		return cli.statusRecipientsAsLIDs(ctx, statusPrivacy.List), nil
 	}
 
 	// Blacklist or all contacts mode. Find all contacts from database, then filter them appropriately.
@@ -62,25 +66,66 @@ func (cli *Client) getStatusBroadcastRecipients(ctx context.Context) ([]types.JI
 		return nil, fmt.Errorf("failed to get contact list from db: %w", err)
 	}
 
-	blacklist := make(map[types.JID]struct{})
-	if statusPrivacy.Type == types.StatusPrivacyTypeBlacklist {
-		for _, jid := range statusPrivacy.List {
-			blacklist[jid] = struct{}{}
-		}
-	}
-
 	var contactsArray []types.JID
 	for jid, contact := range contacts {
-		_, isBlacklisted := blacklist[jid]
-		if isBlacklisted {
-			continue
-		}
 		// TODO should there be a better way to separate contacts and found push names in the db?
 		if len(contact.FullName) > 0 {
 			contactsArray = append(contactsArray, jid)
 		}
 	}
+	contactsArray = cli.statusRecipientsAsLIDs(ctx, contactsArray)
+	if statusPrivacy.Type == types.StatusPrivacyTypeBlacklist {
+		// Compared after both sides are LIDs: the privacy list and the contact store may name the same
+		// person by different identities.
+		blacklist := make(map[string]struct{})
+		for _, jid := range cli.statusRecipientsAsLIDs(ctx, statusPrivacy.List) {
+			blacklist[jid.User] = struct{}{}
+		}
+		contactsArray = slices.DeleteFunc(contactsArray, func(j types.JID) bool {
+			_, ok := blacklist[j.User]
+			return ok
+		})
+	}
 	return contactsArray, nil
+}
+
+// statusRecipientsAsLIDs addresses every status recipient by LID. The contact store mixes phone and
+// LID keys, and a mixed list is refused by the server, while a contact addressed by phone after the
+// LID migration resolves to no devices and silently never gets the status. A phone with no known LID
+// is dropped and counted, since it could not be delivered anyway.
+func (cli *Client) statusRecipientsAsLIDs(ctx context.Context, jids []types.JID) []types.JID {
+	var pns []types.JID
+	for _, j := range jids {
+		if j.Server == types.DefaultUserServer {
+			pns = append(pns, j.ToNonAD())
+		}
+	}
+	lidByPN, err := cli.Store.LIDs.GetManyLIDsForPNs(ctx, pns)
+	if err != nil {
+		cli.Log.Warnf("Failed to map status recipients to LIDs: %v", err)
+	}
+	seen := make(map[string]struct{}, len(jids))
+	out := make([]types.JID, 0, len(jids))
+	dropped := 0
+	for _, j := range jids {
+		lid := j.ToNonAD()
+		if j.Server == types.DefaultUserServer {
+			lid = lidByPN[lid]
+		}
+		if lid.Server != types.HiddenUserServer {
+			dropped++
+			continue
+		}
+		if _, dup := seen[lid.User]; dup {
+			continue
+		}
+		seen[lid.User] = struct{}{}
+		out = append(out, lid)
+	}
+	if dropped > 0 {
+		cli.Log.Infof("Status recipients: %d by LID, %d dropped without a known LID", len(out), dropped)
+	}
+	return out
 }
 
 var DefaultStatusPrivacy = []types.StatusPrivacy{{
