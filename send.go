@@ -23,6 +23,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"go.mau.fi/libsignal/groups"
+	groupRecord "go.mau.fi/libsignal/groups/state/record"
 	"go.mau.fi/libsignal/keys/prekey"
 	"go.mau.fi/libsignal/protocol"
 	"go.mau.fi/libsignal/session"
@@ -327,6 +328,11 @@ func (cli *Client) SendMessage(ctx context.Context, to types.JID, message *waE2E
 			if err != nil {
 				err = fmt.Errorf("failed to get broadcast list members: %w", err)
 				return
+			}
+			if to != types.StatusBroadcastJID {
+				// Participants are LIDs (see getRegularBroadcastListRecipients), so the sender is too. The
+				// addressing_mode attribute a group carries is refused here with 479.
+				ownID = cli.getOwnLID()
 			}
 		}
 		resp.DebugTimings.GetParticipants = time.Since(start)
@@ -777,6 +783,7 @@ func (cli *Client) sendGroup(
 	extraParams nodeExtraParams,
 ) (string, []byte, error) {
 	start := time.Now()
+	isList := to.Server == types.BroadcastServer && to != types.StatusBroadcastJID
 	plaintext, _, err := marshalMessage(to, message)
 	timings.Marshal = time.Since(start)
 	if err != nil {
@@ -786,6 +793,16 @@ func (cli *Client) sendGroup(
 	start = time.Now()
 	builder := groups.NewGroupSessionBuilder(cli.Store, pbSerializer)
 	senderKeyName := protocol.NewSenderKeyName(to.String(), cli.getOwnLID().SignalAddress())
+	if isList {
+		// The phone records a list message another device sent only when it can't decrypt the fan-out
+		// copy and gets the message through a retry instead (see getBroadcastListParticipants). The
+		// retry answer hands it the current key, so a fresh key per message keeps it on that path.
+		// Recipients get the new key with every message anyway.
+		emptyKey := groupRecord.NewSenderKey(pbSerializer.SenderKeyRecord, pbSerializer.SenderKeyState)
+		if err = cli.Store.StoreSenderKey(ctx, senderKeyName, emptyKey); err != nil {
+			return "", nil, fmt.Errorf("failed to reset sender key to send %s to %s: %w", id, to, err)
+		}
+	}
 	signalSKDMessage, err := builder.Create(ctx, senderKeyName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create sender key distribution message to send %s to %s: %w", id, to, err)
@@ -814,6 +831,9 @@ func (cli *Client) sendGroup(
 	)
 	if err != nil {
 		return "", nil, err
+	}
+	if isList {
+		cli.addListRecipientPNs(ctx, to, node)
 	}
 
 	phash := participantListHashV2(allDevices)

@@ -1174,6 +1174,7 @@ func (cli *Client) handleDecryptedMessage(ctx context.Context, info *types.Messa
 	if !ok {
 		return false
 	}
+	cli.learnBroadcastList(ctx, info)
 	evt := &events.Message{Info: *info, RawMessage: msg, RetryCount: retryCount}
 	return cli.dispatchEvent(evt.UnwrapRaw())
 }
