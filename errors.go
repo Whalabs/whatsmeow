@@ -110,12 +110,13 @@ var (
 	// ErrBroadcastListNotFound is returned when the list is not in the app state synced copy.
 	ErrBroadcastListNotFound = errors.New("broadcast list not found in app state")
 	// ErrBroadcastListEmpty is returned when the list exists but has no resolvable participants.
-	ErrBroadcastListEmpty  = errors.New("broadcast list has no participants")
-	ErrUnknownServer       = errors.New("can't send message to unknown server")
-	ErrRecipientADJID      = errors.New("message recipient must be a user JID with no device part")
-	ErrServerReturnedError = errors.New("server returned error")
-	ErrInvalidInlineBotID  = errors.New("invalid inline bot ID")
-	ErrNoPermissionInGroup = errors.New("no permission to send that message in the group")
+	ErrBroadcastListEmpty     = errors.New("broadcast list has no participants")
+	ErrUnknownServer          = errors.New("can't send message to unknown server")
+	ErrRecipientADJID         = errors.New("message recipient must be a user JID with no device part")
+	ErrServerReturnedError    = errors.New("server returned error")
+	ErrInvalidInlineBotID     = errors.New("invalid inline bot ID")
+	ErrNoPermissionInGroup    = errors.New("no permission to send that message in the group")
+	ErrRecipientNotOnWhatsApp = errors.New("recipient is not on WhatsApp")
 )
 
 type DownloadHTTPError struct {
