@@ -87,6 +87,7 @@ type Client struct {
 	SynchronousAck             bool
 	EnableDecryptedEventBuffer bool
 	lastDecryptedBufferClear   time.Time
+	unifiedSessionLock         sync.Mutex
 	lastUnifiedSessionSend     time.Time
 	UnifiedSessionInterval     time.Duration
 
@@ -319,7 +320,7 @@ func NewClient(deviceStore *store.Device, log waLog.Logger) *Client {
 	cli.paired.Store(deviceStore.ID != nil)
 	cli.nodeHandlers = map[string]nodeHandler{
 		"message":      cli.handleEncryptedMessage,
-		"status":       cli.handleUnencryptedMessage,
+		"status":       cli.handleEncryptedMessage,
 		"appdata":      cli.handleEncryptedMessage,
 		"receipt":      cli.handleReceipt,
 		"call":         cli.handleCallEvent,
@@ -955,6 +956,10 @@ Loop:
 		select {
 		case node := <-queue:
 			if connCtx.Err() != nil {
+				if node.Tag == "stream:error" {
+					cli.Log.Debugf("Handling stream:error node in handler queue loop after context cancellation")
+					cli.handleStreamError(evtCtx, node)
+				}
 				cli.Log.Debugf("Closing handler queue loop before node handling")
 				return
 			}
@@ -1136,10 +1141,13 @@ func (cli *Client) sendUnifiedSession(checkLastSend bool) {
 	if cli == nil {
 		return
 	}
+	cli.unifiedSessionLock.Lock()
 	if checkLastSend && time.Since(cli.lastUnifiedSessionSend) < cli.UnifiedSessionInterval {
+		cli.unifiedSessionLock.Unlock()
 		return
 	}
 	cli.lastUnifiedSessionSend = time.Now()
+	cli.unifiedSessionLock.Unlock()
 	node := waBinary.Node{
 		Tag:   "ib",
 		Attrs: waBinary.Attrs{},
